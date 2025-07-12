@@ -1,5 +1,7 @@
-import React from 'react';
-import { StyleSheet, Text, View, SafeAreaView } from 'react-native';
+import React, { useEffect } from 'react';
+import { StyleSheet, Text, View, SafeAreaView, Platform } from 'react-native';
+import * as Notifications from 'expo-notifications';
+import * as Device from 'expo-device';
 
 // A list of bodyweight strength exercises
 const exercises = [
@@ -28,8 +30,48 @@ function getDailyExercise() {
   return exercises[index];
 }
 
+// Configure how notifications behave when received
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: false,
+    shouldSetBadge: false,
+  }),
+});
+
 export default function App() {
   const exercise = getDailyExercise();
+
+  useEffect(() => {
+    const scheduleNotification = async () => {
+      if (!Device.isDevice) return;
+
+      const { status } = await Notifications.getPermissionsAsync();
+      if (status !== 'granted') {
+        const { status: newStatus } = await Notifications.requestPermissionsAsync();
+        if (newStatus !== 'granted') {
+          console.warn('Notifications not permitted');
+          return;
+        }
+      }
+
+      // Cancel any existing scheduled notifications
+      await Notifications.cancelAllScheduledNotificationsAsync();
+
+      // Schedule one notification for 24 hours from now
+      await Notifications.scheduleNotificationAsync({
+        content: {
+          title: "Time for your next exercise",
+          body: "Open the app to get your new daily exercise.",
+        },
+        trigger: {
+          seconds: 86400, // 24 hours
+        },
+      });
+    };
+
+    scheduleNotification();
+  }, []);
 
   return (
     <SafeAreaView style={styles.container}>
